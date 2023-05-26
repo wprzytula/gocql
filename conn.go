@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,28 @@ import (
 	"github.com/gocql/gocql/internal/lru"
 	"github.com/gocql/gocql/internal/streams"
 )
+
+const (
+	mainModule   = "github.com/gocql/gocql"
+	forkedModule = "github.com/scylladb/gocql"
+	driverName   = "scylladb-gocql"
+)
+
+var driverVersion string
+
+func init() {
+	buildInfo, ok := debug.ReadBuildInfo()
+	if ok {
+		for _, d := range buildInfo.Deps {
+			if d.Path == mainModule {
+				if d.Replace != nil && d.Replace.Path == forkedModule {
+					driverVersion = d.Replace.Version
+					break
+				}
+			}
+		}
+	}
+}
 
 var (
 	defaultApprovedAuthenticators = []string{
@@ -467,7 +490,9 @@ func (s *startupCoordinator) options(ctx context.Context) error {
 
 func (s *startupCoordinator) startup(ctx context.Context) error {
 	m := map[string]string{
-		"CQL_VERSION": s.conn.cfg.CQLVersion,
+		"CQL_VERSION":    s.conn.cfg.CQLVersion,
+		"DRIVER_NAME":    driverName,
+		"DRIVER_VERSION": driverVersion,
 	}
 
 	if s.conn.compressor != nil {
