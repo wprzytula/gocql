@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	mainModule   = "github.com/gocql/gocql"
-	forkedModule = "github.com/scylladb/gocql"
-	driverName   = "scylladb-gocql"
+	mainModule = "github.com/gocql/gocql"
 )
+
+var driverName string
 
 var driverVersion string
 
@@ -37,10 +37,13 @@ func init() {
 	if ok {
 		for _, d := range buildInfo.Deps {
 			if d.Path == mainModule {
-				if d.Replace != nil && d.Replace.Path == forkedModule {
+				driverName = mainModule
+				driverVersion = d.Version
+				if d.Replace != nil {
+					driverName = d.Replace.Path
 					driverVersion = d.Replace.Version
-					break
 				}
+				break
 			}
 		}
 	}
