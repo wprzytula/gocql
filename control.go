@@ -363,6 +363,38 @@ func (c *controlConn) reconnect() {
 		ch.conn.Close()
 	}
 
+	conn, err := c.attemptReconnectToAnyOfHosts(hosts)
+
+	if conn == nil {
+		c.session.logger.Printf("gocql: control falling back to initial contact points.\n")
+		// Fallback to initial contact points, as it may be the case that all known initial_hosts
+		// changed their IPs while keeping the same hostname(s).
+		initial_hosts, resolvErr := addrsToHosts(c.session.cfg.Hosts, c.session.pool.port, c.session.logger)
+		if resolvErr == nil {
+			conn, err = c.attemptReconnectToAnyOfHosts(initial_hosts)
+			}
+		} else {
+			c.session.logger.Printf("gocql: error on resolving contact points' hostnames: %v\n", err)
+		}
+	}
+
+	if conn == nil {
+		c.session.logger.Printf("gocql: control unable to register events: %v\n", err)
+		return
+	}
+
+	if conn == nil {
+		c.session.logger.Printf("gocql: control unable to register events: %v\n", err)
+		return
+	}
+
+	err = c.session.refreshRing()
+	if err != nil {
+		c.session.logger.Printf("gocql: unable to refresh ring: %v\n", err)
+	}
+}
+
+func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) (*Conn, error) {
 	var conn *Conn
 	var err error
 	for _, host := range hosts {
@@ -379,15 +411,7 @@ func (c *controlConn) reconnect() {
 		conn.Close()
 		conn = nil
 	}
-	if conn == nil {
-		c.session.logger.Printf("gocql: control unable to register events: %v\n", err)
-		return
-	}
-
-	err = c.session.refreshRing()
-	if err != nil {
-		c.session.logger.Printf("gocql: unable to refresh ring: %v\n", err)
-	}
+	return conn, err
 }
 
 func (c *controlConn) HandleError(conn *Conn, err error, closed bool) {
